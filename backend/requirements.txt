@@ -1,0 +1,44 @@
+# API
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pydantic-settings
+email-validator
+python-dotenv
+
+# Database
+sqlalchemy
+alembic
+psycopg2-binary
+
+# Auth
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt<5
+
+# PDF ingestion
+pypdf
+PyMuPDF
+
+# AI / RAG
+numpy>=2.1
+langchain
+langchain-core
+langchain-groq
+langchain-huggingface
+langgraph
+grandalf
+sentence-transformers
+pinecone
+
+# Testing
+pytest
+httpx
+
+alembic>=1.13,<2.0
+SQLAlchemy>=2.0,<2.1
+psycopg[binary]>=3.2,<4.0
+
+pytest
+httpx

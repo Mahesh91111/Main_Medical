@@ -1,0 +1,269 @@
+
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.encounter import Encounter
+from app.models.lab_result import LabResult
+from app.models.medication import Medication
+from app.models.user import User
+from app.schemas.encounter import EncounterCreate
+from app.schemas.lab_result import LabResultCreate
+from app.services.patient_service import (
+    ensure_clinical_role,
+    ensure_patient_access,
+    get_patient,
+)
+
+
+def ensure_encounter_access(
+    db: Session,
+    encounter_id: UUID,
+    user: User,
+) -> Encounter:
+    """Return an encounter only to its assigned clinician or an admin."""
+    statement = select(Encounter).where(
+        Encounter.id == encounter_id
+    )
+
+    if user.role == "admin":
+        encounter = db.scalar(statement)
+    elif user.role == "clinician":
+        encounter = db.scalar(
+            statement.where(Encounter.clinician_id == user.id)
+        )
+    else:
+        encounter = None
+
+    if encounter is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Encounter not found",
+        )
+
+    return encounter
+
+
+def create_encounter(
+    db: Session,
+    encounter_data: EncounterCreate,
+    user: User,
+) -> Encounter:
+    """Create a clinical encounter for an authorized patient."""
+    ensure_clinical_role(user)
+
+    ensure_patient_access(
+        db,
+        encounter_data.patient_id,
+        user,
+    )
+
+    values = encounter_data.model_dump(exclude_unset=True)
+    values.pop("patient_id", None)
+
+    # The authenticated clinician is assigned by the backend.
+    encounter = Encounter(
+        patient_id=encounter_data.patient_id,
+        clinician_id=user.id,
+        **values,
+    )
+
+    try:
+        db.add(encounter)
+        db.commit()
+        db.refresh(encounter)
+        return encounter
+    except Exception:
+        db.rollback()
+        raise
+
+
+def get_encounter(
+    db: Session,
+    encounter_id: UUID,
+    user: User,
+) -> Encounter:
+    """Retrieve an encounter after checking access."""
+    return ensure_encounter_access(db, encounter_id, user)
+
+
+def list_patient_encounters(
+    db: Session,
+    patient_id: UUID,
+    user: User,
+) -> list[Encounter]:
+    """List encounters for a patient the user may access."""
+    ensure_patient_access(db, patient_id, user)
+
+    statement = select(Encounter).where(
+        Encounter.patient_id == patient_id
+    )
+
+    if user.role == "clinician":
+        statement = statement.where(
+            Encounter.clinician_id == user.id
+        )
+    elif user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to view clinical encounters",
+        )
+
+    return list(
+        db.scalars(
+            statement.order_by(Encounter.encounter_date.desc())
+        ).all()
+    )
+
+
+def create_lab_result(
+    db: Session,
+    lab_data: LabResultCreate,
+    user: User,
+) -> LabResult:
+    """Add a laboratory result to an authorized encounter."""
+    ensure_clinical_role(user)
+
+    ensure_encounter_access(
+        db,
+        lab_data.encounter_id,
+        user,
+    )
+
+    lab_result = LabResult(**lab_data.model_dump())
+
+    try:
+        db.add(lab_result)
+        db.commit()
+        db.refresh(lab_result)
+        return lab_result
+    except Exception:
+        db.rollback()
+        raise
+
+
+def list_lab_results(
+    db: Session,
+    encounter_id: UUID,
+    user: User,
+) -> list[LabResult]:
+    """List laboratory results for an authorized encounter."""
+    ensure_encounter_access(db, encounter_id, user)
+
+    statement = (
+        select(LabResult)
+        .where(LabResult.encounter_id == encounter_id)
+        .order_by(LabResult.collected_at.desc())
+    )
+
+    return list(db.scalars(statement).all())
+
+
+def create_medication(
+    db: Session,
+    patient_id: UUID,
+    user: User,
+    medication_name: str,
+    dose: str | None = None,
+    frequency: str | None = None,
+    notes: str | None = None,
+) -> Medication:
+    """Record a medication for an authorized patient."""
+    ensure_clinical_role(user)
+    ensure_patient_access(db, patient_id, user)
+
+    medication = Medication(
+        patient_id=patient_id,
+        medication_name=medication_name,
+        dose=dose,
+        frequency=frequency,
+        notes=notes,
+    )
+
+    try:
+        db.add(medication)
+        db.commit()
+        db.refresh(medication)
+        return medication
+    except Exception:
+        db.rollback()
+        raise
+
+
+def list_medications(
+    db: Session,
+    patient_id: UUID,
+    user: User,
+) -> list[Medication]:
+    """List medication records for an authorized patient."""
+    ensure_patient_access(db, patient_id, user)
+
+    if user.role not in {"admin", "clinician"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to view medication records",
+        )
+
+    statement = (
+        select(Medication)
+        .where(Medication.patient_id == patient_id)
+        .order_by(Medication.recorded_at.desc())
+    )
+
+    return list(db.scalars(statement).all())
+
+
+def get_patient_records(
+    db: Session,
+    user: User,
+    patient_id: UUID | str,
+) -> dict:
+    """Return an authorized patient's demographics and clinical history."""
+    patient_uuid = UUID(str(patient_id))
+    patient = get_patient(db, patient_uuid, user)
+    encounters = list_patient_encounters(db, patient_uuid, user)
+    medications = list_medications(db, patient_uuid, user)
+
+    return {
+        "patient": {
+            "patient_code": patient.patient_code,
+            "full_name": patient.full_name,
+            "date_of_birth": patient.date_of_birth,
+        },
+        "encounters": [
+            {
+                "encounter_date": encounter.encounter_date,
+                "clinical_notes": encounter.clinical_notes,
+                "status": encounter.status,
+                "lab_results": [
+                    {
+                        "test_name": result.test_name,
+                        "value": result.value,
+                        "unit": result.unit,
+                        "reference_range": result.reference_range,
+                        "collected_at": result.collected_at,
+                        "interpretation": result.interpretation,
+                    }
+                    for result in list_lab_results(
+                        db,
+                        encounter.id,
+                        user,
+                    )
+                ],
+            }
+            for encounter in encounters
+        ],
+        "medications": [
+            {
+                "medication_name": medication.medication_name,
+                "dose": medication.dose,
+                "frequency": medication.frequency,
+                "status": medication.status,
+                "notes": medication.notes,
+                "recorded_at": medication.recorded_at,
+            }
+            for medication in medications
+        ],
+    }
