@@ -1,7 +1,7 @@
 
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import AppLayout from "../components/layout/AppLayout";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
@@ -17,35 +17,28 @@ function ProtectedRoute({ allowedRoles }) {
 
   if (loading) {
     return (
-      <div className="auth-loading">
-        Loading your workspace...
+      <div className="auth-loading" role="status">
+        Verifying your session...
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/register" replace />;
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
   }
 
-  if (
-    allowedRoles &&
-    !allowedRoles.includes(String(user?.role || "").toLowerCase())
-  ) {
-    return <Navigate to="/dashboard" replace />;
+  if (allowedRoles) {
+    const role = String(user.role || "").toLowerCase();
+    const permittedRoles = allowedRoles.map((value) =>
+      String(value).toLowerCase()
+    );
+
+    if (!permittedRoles.includes(role)) {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return <Outlet />;
-}
-
-function PlaceholderPage({ title, description }) {
-  return (
-    <section className="placeholder-page">
-      <div className="placeholder-icon">+</div>
-      <h1>{title}</h1>
-      <p>{description}</p>
-      <span>This module will be implemented in a later phase.</span>
-    </section>
-  );
 }
 
 function NotFound() {

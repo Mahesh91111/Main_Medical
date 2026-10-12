@@ -13,6 +13,7 @@ import SectionHeader from "../components/common/SectionHeader";
 import DocumentUpload from "../components/documents/DocumentUpload";
 import DocumentTable from "../components/documents/DocumentTable";
 import DocumentDeleteDialog from "../components/documents/DocumentDeleteDialog";
+import { getApiErrorMessage } from "../utils/apiErrors";
 
 export default function Documents() {
   const [documents, setDocuments] = useState([]);
@@ -24,36 +25,29 @@ export default function Documents() {
   const [documentToDelete, setDocumentToDelete] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const loadDocuments = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    setError("");
-
+  const loadDocuments = useCallback(async () => {
     try {
       const data = await getDocuments();
       setDocuments(data);
-    } catch (err) {
-      const status = err.response?.status;
-
-      if (status === 401) {
-        setError("Your session has expired. Please sign in again.");
-      } else if (status === 403) {
-        setError("You do not have permission to view these documents.");
-      } else if (!err.response) {
-        setError("Cannot connect to the API. Check that FastAPI is running.");
-      } else {
-        setError(
-          err.response?.data?.detail ||
-          "Unable to load documents."
-        );
-      }
+      setError("");
+    } catch (error) {
+      setError(getApiErrorMessage(error));
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadDocuments();
+    queueMicrotask(() => {
+      void loadDocuments();
+    });
   }, [loadDocuments, refreshKey]);
+
+  function refreshDocuments() {
+    setLoading(true);
+    setError("");
+    setRefreshKey((current) => current + 1);
+  }
 
   useEffect(() => {
     let active = true;
@@ -121,7 +115,7 @@ export default function Documents() {
     if (processingCount === 0) return undefined;
 
     const timer = setInterval(() => {
-      loadDocuments(true);
+      loadDocuments();
     }, 4000);
 
     return () => clearInterval(timer);
@@ -202,7 +196,7 @@ export default function Documents() {
             <button
               type="button"
               className="document-refresh-button"
-              onClick={() => setRefreshKey((current) => current + 1)}
+              onClick={refreshDocuments}
               disabled={loading}
               aria-label="Refresh documents"
             >
@@ -222,7 +216,7 @@ export default function Documents() {
           patients={patients}
           loading={loading}
           error={error}
-          onRetry={() => loadDocuments()}
+          onRetry={refreshDocuments}
           onDelete={setDocumentToDelete}
         />
       </section>

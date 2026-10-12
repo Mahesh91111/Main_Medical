@@ -1,0 +1,13 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+.env.*
+!.env.example
+storage/
+private_uploads/
+tests/
+check_db.py
+create_tables.py

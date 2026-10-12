@@ -3421,11 +3421,11 @@ a {
   padding: 35px 20px;
   text-align: center;
 }
-
+/*  */
 .research-empty-results > svg {
   color: var(--primary, #315de8);
 }
-
+/* fjkvnjkfnbjkfv */
 .research-empty-results h3 {
   margin: 12px 0 6px;
   font-size: 15px;
@@ -3551,4 +3551,34 @@ a {
   .research-result-card {
     padding: 13px;
   }
+}
+/* Phase 7: API health status */
+
+.api-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  padding: 7px 10px;
+  border: 1px solid var(--border, #e0e5ef);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.api-status-online {
+  color: #16734d;
+  background: #effaf4;
+  border-color: #c6ead7;
+}
+
+.api-status-offline {
+  color: #a52c2c;
+  background: #fff4f4;
+  border-color: #f1d0d0;
+}
+
+.api-status-loading {
+  color: #596780;
+  background: #f5f7fb;
 }

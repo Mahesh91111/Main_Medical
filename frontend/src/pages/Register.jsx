@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 import { registerUser } from "../api/auth";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 const MIN_PASSWORD_LENGTH = 12;
 

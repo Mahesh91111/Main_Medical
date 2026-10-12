@@ -7,6 +7,7 @@ import PatientSearch from "../components/patients/PatientSearch";
 import PatientTable from "../components/patients/PatientTable";
 import PatientForm from "../components/patients/PatientForm";
 import SectionHeader from "../components/common/SectionHeader";
+import { getApiErrorMessage } from "../utils/apiErrors";
 
 function normalize(value) {
   return String(value ?? "").trim().toLowerCase();
@@ -30,35 +31,28 @@ export default function Patients() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const loadPatients = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
     try {
       const data = await getPatients();
       setPatients(data);
-    } catch (err) {
-      const status = err.response?.status;
-
-      if (status === 401) {
-        setError("Your session has expired. Please sign in again.");
-      } else if (status === 403) {
-        setError("You do not have permission to view patient records.");
-      } else if (!err.response) {
-        setError("Cannot connect to the API. Check that FastAPI is running.");
-      } else {
-        setError(
-          err.response?.data?.detail ||
-          "Unable to load patient records."
-        );
-      }
+      setError("");
+    } catch (error) {
+      setError(getApiErrorMessage(error));
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadPatients();
+    queueMicrotask(() => {
+      void loadPatients();
+    });
   }, [loadPatients, refreshKey]);
+
+  function refreshPatients() {
+    setLoading(true);
+    setError("");
+    setRefreshKey((current) => current + 1);
+  }
 
   const filteredPatients = useMemo(() => {
     return patients.filter((patient) => {
@@ -131,7 +125,7 @@ export default function Patients() {
 
         <button
           className="patient-refresh-button"
-          onClick={() => setRefreshKey((current) => current + 1)}
+          onClick={refreshPatients}
           disabled={loading}
           aria-label="Refresh patients"
           title="Refresh patients"
@@ -157,7 +151,7 @@ export default function Patients() {
           patients={filteredPatients}
           loading={loading}
           error={error}
-          onRetry={loadPatients}
+          onRetry={refreshPatients}
         />
       </section>
 

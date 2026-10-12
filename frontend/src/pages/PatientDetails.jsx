@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, CalendarDays, Mail, Phone, UserRound } from "lucide-react";
 
 import { getPatientById } from "../api/patients";
+import { getApiErrorMessage } from "../utils/apiErrors";
 
 function display(value) {
   if (value === null || value === undefined || value === "") {
@@ -42,21 +43,10 @@ export default function PatientDetails() {
         const data = await getPatientById(patientId);
 
         if (active) setPatient(data);
-      } catch (err) {
+      } catch (error) {
         if (!active) return;
 
-        if (err.response?.status === 404) {
-          setError("Patient record not found.");
-        } else if (err.response?.status === 403) {
-          setError("You do not have permission to view this record.");
-        } else if (!err.response) {
-          setError("Cannot connect to the API. Check that FastAPI is running.");
-        } else {
-          setError(
-            err.response?.data?.detail ||
-            "Unable to load patient details."
-          );
-        }
+        setError(getApiErrorMessage(error));
       } finally {
         if (active) setLoading(false);
       }
