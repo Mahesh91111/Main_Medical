@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -36,6 +36,27 @@ class Encounter(Base):
     )
     status: Mapped[str] = mapped_column(
         String(30), default="completed", nullable=False
+    )
+    blood_pressure: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )
+    heart_rate: Mapped[float | None] = mapped_column(
+        Numeric(6, 2), nullable=True
+    )
+    temperature: Mapped[float | None] = mapped_column(
+        Numeric(6, 2), nullable=True
+    )
+    respiratory_rate: Mapped[float | None] = mapped_column(
+        Numeric(6, 2), nullable=True
+    )
+    oxygen_saturation: Mapped[float | None] = mapped_column(
+        Numeric(6, 2), nullable=True
+    )
+    weight: Mapped[float | None] = mapped_column(
+        Numeric(7, 2), nullable=True
+    )
+    height: Mapped[float | None] = mapped_column(
+        Numeric(7, 2), nullable=True
     )
 
     patient: Mapped[Patient] = relationship(

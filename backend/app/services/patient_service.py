@@ -74,6 +74,11 @@ def create_patient(
         patient_code=patient_data.patient_code,
         full_name=patient_data.full_name,
         date_of_birth=patient_data.date_of_birth,
+        gender=patient_data.gender,
+        email=patient_data.email,
+        phone=patient_data.phone,
+        medical_history=patient_data.medical_history,
+        allergies=patient_data.allergies,
         created_by_id=user.id,
     )
 
@@ -104,6 +109,8 @@ def list_patients(
     user: User,
     skip: int = 0,
     limit: int = 50,
+    search: str | None = None,
+    gender: str | None = None,
 ) -> list[Patient]:
     """Return only patients the user is allowed to access."""
     if user.role == "admin":
@@ -118,7 +125,28 @@ def list_patients(
             detail="You are not authorized to list patient records",
         )
 
-    statement = (  
+    if search:
+        search_pattern = f"%{search.strip()}%"
+        statement = statement.where(
+            or_(
+                Patient.full_name.ilike(search_pattern),
+                Patient.patient_code.ilike(search_pattern),
+                Patient.email.ilike(search_pattern),
+                Patient.phone.ilike(search_pattern),
+            )
+        )
+
+    if gender and gender.lower() in {"unknown", "unspecified"}:
+        statement = statement.where(
+            or_(
+                Patient.gender.is_(None),
+                Patient.gender.in_(["unknown", "unspecified"]),
+            )
+        )
+    elif gender:
+        statement = statement.where(Patient.gender == gender)
+
+    statement = (
         statement.order_by(Patient.created_at.desc())
         .offset(max(skip, 0))
         .limit(min(max(limit, 1), 100))
