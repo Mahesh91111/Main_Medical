@@ -6,4 +6,4 @@ Base.metadata.create_all(bind=engine)
 
 print("Tables created:")
 for table_name in Base.metadata.tables:
-    print(" -", table_name)
+    print(" -", table_name) #mnfnvkjfdnvjknfdvnfdkvn
